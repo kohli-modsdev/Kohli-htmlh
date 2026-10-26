@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>WinGo Live Predictor</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+  body {
+    background: radial-gradient(circle at top, #1a1a2e, #0f0f1a);
+    color: #fff; min-height: 100vh; padding: 20px;
+  }
+  .container { max-width: 900px; margin: 0 auto; }
+
+  h1 {
+    text-align: center; margin-bottom: 20px;
+    background: linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-size: 2rem;
+  }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
+  .tab {
+    padding: 12px 28px; border-radius: 30px; cursor: pointer;
+    background: #1f1f35; border: 2px solid transparent;
+    font-weight: 600; transition: 0.3s;
+  }
+  .tab.active {
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    border-color: #a29bfe;
+    box-shadow: 0 0 20px rgba(118, 75, 162, 0.6);
+  }
+
+  /* Live Card */
+  .live-card {
+    background: #1c1c30; border-radius: 16px; padding: 20px;
+    margin-bottom: 20px; border: 1px solid #2f2f4a;
+  }
+  .live-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+  .live-item {
+    text-align: center; padding: 15px; border-radius: 12px;
+    background: #12121f;
+  }
+  .live-item .label { font-size: 0.8rem; color: #888; margin-bottom: 6px; }
+  .live-item .value { font-size: 1.4rem; font-weight: 700; color: #feca57; }
+  .timer { color: #48dbfb !important; }
+
+  /* Prediction Card */
+  .predict-card {
+    background: linear-gradient(135deg, #2d1b4e, #1a1a2e);
+    border-radius: 16px; padding: 24px; margin-bottom: 20px;
+    border: 2px solid #6c5ce7;
+    box-shadow: 0 0 30px rgba(108, 92, 231, 0.4);
+    text-align: center;
+  }
+  .predict-title { font-size: 1rem; color: #a29bfe; margin-bottom: 12px; }
+  .predict-main {
+    display: flex; justify-content: center; gap: 30px; flex-wrap: wrap;
+    margin-bottom: 15px;
+  }
+  .predict-box {
+    padding: 15px 30px; border-radius: 12px; background: #12121f;
+    min-width: 130px;
+  }
+  .predict-box .p-label { font-size: 0.75rem; color: #888; }
+  .predict-box .p-value { font-size: 1.6rem; font-weight: 800; margin-top: 6px; }
+  .size-big { color: #ff6b6b; }
+  .size-small { color: #48dbfb; }
+  .color-green { color: #2ecc71; }
+  .color-red { color: #e74c3c; }
+  .color-violet { color: #9b59b6; }
+  .confidence { color: #feca57; font-size: 1rem; }
+
+  /* Results Table */
+  .results-title { font-size: 1.1rem; margin-bottom: 12px; color: #a29bfe; }
+  .results-table {
+    width: 100%; border-collapse: collapse; background: #1c1c30;
+    border-radius: 12px; overflow: hidden;
+  }
+  .results-table th {
+    background: #2f2f4a; padding: 12px; text-align: left;
+    font-size: 0.85rem; color: #bbb;
+  }
+  .results-table td {
+    padding: 12px; border-top: 1px solid #2f2f4a; font-size: 0.9rem;
+  }
+  .badge {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 0.75rem; font-weight: 600;
+  }
+  .badge-green { background: #2ecc71; color: #fff; }
+  .badge-red { background: #e74c3c; color: #fff; }
+  .badge-violet { background: #9b59b6; color: #fff; }
+
+  .pulse { animation: pulse 1s infinite; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .error { color: #ff6b6b; text-align: center; padding: 20px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🎯 WinGo Live Predictor</h1>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab(30, this)">⚡ WinGo 30s</div>
+    <div class="tab" onclick="switchTab(60, this)">🕐 WinGo 1 Min</div>
+  </div>
+
+  <div id="app">
+    <div class="error pulse">Loading live data...</div>
+  </div>
+</div>
+
+<script>
+let currentPlaytime = 30;
+let timer = null;
+
+function switchTab(playtime, el) {
+  currentPlaytime = playtime;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  fetchLive();
+}
+
+async function fetchLive() {
+  try {
+    const res = await fetch(`/api/live/${currentPlaytime}`);
+    const data = await res.json();
+    render(data);
+  } catch (e) {
+    document.getElementById('app').innerHTML =
+      `<div class="error">⚠️ Failed to fetch: ${e.message}</div>`;
+  }
+}
+
+function colorClass(color) {
+  if (!color) return '';
+  const c = color.toLowerCase();
+  if (c.includes('green')) return 'badge-green';
+  if (c.includes('red')) return 'badge-red';
+  if (c.includes('violet')) return 'badge-violet';
+  return '';
+}
+
+function colorTextClass(color) {
+  const c = (color || '').toLowerCase();
+  if (c.includes('green')) return 'color-green';
+  if (c.includes('red')) return 'color-red';
+  if (c.includes('violet')) return 'color-violet';
+  return '';
+}
+
+function render(data) {
+  const { period, seconds, results, prediction } = data;
+
+  const rows = (results || []).map(r => {
+    const num = r.lotteryResults ?? '-';
+    const color = r.color ?? '-';
+    const size = r.bigSmall ?? '-';
+    return `
+      <tr>
+        <td>${r.issueNo ?? '-'}</td>
+        <td><strong>${num}</strong></td>
+        <td><span class="badge ${colorClass(color)}">${color}</span></td>
+        <td>${size}</td>
+      </tr>`;
+  }).join('');
+
+  const sizeCls = (prediction.size || '').toLowerCase() === 'big' ? 'size-big' : 'size-small';
+
+  document.getElementById('app').innerHTML = `
+    <!-- Live Info -->
+    <div class="live-card">
+      <div class="live-grid">
+        <div class="live-item">
+          <div class="label">📌 Period</div>
+          <div class="value">${period || 'N/A'}</div>
+        </div>
+        <div class="live-item">
+          <div class="label">⏳ Time Left</div>
+          <div class="value timer" id="timer">${seconds ?? '-'}s</div>
+        </div>
+        <div class="live-item">
+          <div class="label">🎮 Game</div>
+          <div class="value">${currentPlaytime === 30 ? '30 Sec' : '1 Min'}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Prediction -->
+    <div class="predict-card">
+      <div class="predict-title">🔮 AI PREDICTION FOR NEXT ROUND</div>
+      <div class="predict-main">
+        <div class="predict-box">
+          <div class="p-label">SIZE</div>
+          <div class="p-value ${sizeCls}">${prediction.size}</div>
+        </div>
+        <div class="predict-box">
+          <div class="p-label">COLOR</div>
+          <div class="p-value ${colorTextClass(prediction.color)}">${prediction.color}</div>
+        </div>
+        <div class="predict-box">
+          <div class="p-label">NUMBER</div>
+          <div class="p-value">${prediction.number}</div>
+        </div>
+      </div>
+      <div class="confidence">Confidence: ${prediction.confidence}%</div>
+    </div>
+
+    <!-- Results -->
+    <div class="results-title">📊 Recent 10 Results</div>
+    <table class="results-table">
+      <thead>
+        <tr><th>Period</th><th>Number</th><th>Color</th><th>Size</th></tr>
+      </thead>
+      <tbody>${rows || '<tr><td colspan="4">No data</td></tr>'}</tbody>
+    </table>
+  `;
+
+  // Start local countdown
+  startCountdown(seconds);
+}
+
+function startCountdown(seconds) {
+  if (timer) clearInterval(timer);
+  if (seconds == null) return;
+  let left = seconds;
+  timer = setInterval(() => {
+    left--;
+    const el = document.getElementById('timer');
+    if (el) el.textContent = (left > 0 ? left : 0) + 's';
+    if (left <= 0) {
+      clearInterval(timer);
+      fetchLive(); // auto-refresh on new round
+    }
+  }, 1000);
+}
+
+// Initial load + auto refresh every 15 seconds
+fetchLive();
+setInterval(fetchLive, 15000);
+</script>
+</body>
+</html>
